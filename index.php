@@ -1,174 +1,306 @@
 
 <?php
-    session_start();
-    if (isset($_SESSION['SESSION_EMAIL'])) {
-        header("Location: welcome.php");
-        die();
-    }
+      // Database connection
+      $dbservername = "localhost";
+      $dbusername = "root";
+      $dbpassword = "";
+      $dbname = "outfitters";
 
-    include 'config.php';
-    $msg = "";
+      $conn = mysqli_connect($dbservername, $dbusername, $dbpassword, $dbname);
+      if (!$conn) {
+        die("Database connection failed: " . mysqli_connect_error());
+      }
 
-    if (isset($_GET['verification'])) {
-        if (mysqli_num_rows(mysqli_query($conn, "SELECT * FROM users WHERE code='{$_GET['verification']}'")) > 0) {
-            $query = mysqli_query($conn, "UPDATE users SET code='' WHERE code='{$_GET['verification']}'");
-            
-            if ($query) {
-                $msg = "<div class='alert alert-success'>Account verification has been successfully completed.</div>";
-            }
+      // Check if the form is submitted
+      if ($_SERVER["REQUEST_METHOD"] === "POST") {
+        // Image upload
+        $target_dir = "uploads/"; // Directory to store uploaded images
+      
+        $top_image = uploadImage($_FILES["top_image"], $target_dir);
+        $bottom_image = uploadImage($_FILES["bottom_image"], $target_dir);
+        $shoes_image = uploadImage($_FILES["shoes_image"], $target_dir);
+      
+        // Insert uploaded image paths into the database
+        $query = "INSERT INTO images (top_image, bottom_image, shoes_image) VALUES ('$top_image', '$bottom_image', '$shoes_image')";
+        if (mysqli_query($conn, $query)) {
+          
         } else {
-            header("Location: index.php");
+          die("Error uploading image: " . mysqli_error($conn));
         }
-    }
+      }
 
-    if (isset($_POST['submit'])) {
-        $email = mysqli_real_escape_string($conn, $_POST['email']);
-        $password = mysqli_real_escape_string($conn, md5($_POST['password']));
+      // Function to handle image upload
+      function uploadImage($file, $target_dir) {
+        $target_file = $target_dir . basename($file["name"]);
+        $imageFileType = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
+      
+        // Generate a unique filename to avoid overwriting existing images
+        $filename = uniqid() . '.' . $imageFileType;
+        $target_path = $target_dir . $filename;
 
-        $sql = "SELECT * FROM users WHERE email='{$email}' AND password='{$password}'";
-        $result = mysqli_query($conn, $sql);
-
-        if (mysqli_num_rows($result) === 1) {
-            $row = mysqli_fetch_assoc($result);
-
-            if (empty($row['code'])) {
-                $_SESSION['SESSION_EMAIL'] = $email;
-                header("Location: Home Page/home.php");
-            } else {
-                $msg = "<div class='alert alert-info'>First verify your account and try again.</div>";
-            }
+        if (move_uploaded_file($file["tmp_name"], $target_path)) {
+          return $target_path;
         } else {
-            $msg = "<div class='alert alert-danger'>Email or password do not match.</div>";
+          die("Error uploading image.");
         }
-    }
-?>
+      }
+
+      $query = "SELECT * FROM images ORDER BY id DESC LIMIT 1";
+      $result = mysqli_query($conn, $query);
+      $row = mysqli_fetch_assoc($result);
+      
+
+      // Close database connection
+      mysqli_close($conn);
+    ?>
 
 <!DOCTYPE html>
-<html lang="zxx">
-
-<head>
-    <title>Login Form - Outfitters</title>
-    <!-- Meta tag Keywords -->
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="en">
+  <head>
     <meta charset="UTF-8" />
-    <meta name="keywords"
-        content="Login Form" />
-    <!-- //Meta tag Keywords -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="keywords"
+      content="calendar, events, reminders, javascript, html, css, open source coding"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css"
+      integrity="sha512-xh6O/CkQoPOWDdYTDqeRdPCVd1SpvCA9XXcUnZS2FmJNp1coAFzvtCN9BmamE+4aHK8yyUHUSCcJHgXloTyT2A=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="style.css" />
+    
+    <title>Calendar with Events</title>
+    
+  </head>
+  <body>
+    <div class="background">
+    <!-- NAV BAR -->
+    <section class="home">
+          <nav>
+              <a href="index.html"><img src="images/logo.png"></a>
+              <div class="nav-links" id="navLinks">
+                  <i class="uil uil-times" onclick="hideMenu()"></i>
+                  <ul>
+                    <li><a href="..\..\Home Page\home.php">Home</a></li>
+                    <li><a href="..\..\Profile Page\index.php">Profile</a></li>
+                    <li><a href="..\..\Membership page\Membership page.php">Membership</a></li>
+                    <li><a href="index.php"><ion-icon name="star"></ion-icon>Calendar</a></li>
+                    <li><a href="..\..\About Page\about page\about.php">About</a></li>
+                    <li><a href="..\..\logout.php">Log Out</a></li>
+                  </ul>
+              </div>
+              <i class="uil uil-bars" onclick="showMenu()"></i>
+          </nav>
+      </section>
 
-    <link href="//fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-
-    <!--/Style-CSS -->
-    <link rel="stylesheet" href="css/style.css" type="text/css" media="all" />
-    <!--//Style-CSS -->
-
-    <script src="https://kit.fontawesome.com/af562a2a63.js" crossorigin="anonymous"></script>
-
-</head>
-<style>
- 
- body{
-    background-color: #C09667;
- }
-
- .logos{
-margin-left: 70px;
-font-size: 35px;
-display: inline-flex;
-padding-left: 20px;
-padding-right: 20px;
-justify-content: center;
-text-align: center;
-align-items: center;
-
-}
-.logo1:hover{
-    transform: scale(1.2) perspective(4px);
-}
-
-.logos .logo1{
-    margin-left: 10px;
-    color: #855C3F;
-}
-</style>
-<body>
-
-    <!-- form section start -->
-    <section class="w3l-mockup-form">
-        <div class="container">
-            <!-- /form -->
-            <div class="workinghny-form-grid">
-                <div class="main-mockup">
-                    <div class="alert-close">
-                        <span class="fa fa-close"></span>
-                    </div>
-                    <div class="w3l_form align-self">
-                    <div>
-                        </div>
-                    </div>
-                    <div class="content-wthree">
-                        <h2>Login Now</h2>
-                        <p>Welcome to Outfitters </p>
-                        <?php echo $msg; ?>
-                        <form action="" method="post">
-                            
-                            <div class="form-group">
-                            <ion-icon name='person' class="inputicon"></ion-icon>
-                                <span>Username</span>
-                                <input type="email" class="email" name="email" placeholder="Enter Your Email" required>
-                            </div>
-                            
-                            <div class="form-group">
-                            <ion-icon name='person' class="inputicon"></ion-icon>
-                            <span>Password</span>
-                            <input type="password" class="password" name="password" placeholder="Enter Your Password" style="margin-bottom: 2px;" required>
-                            </div>
-                            
-                            <p><a href="forgot-password.php" style="margin-bottom: 15px; display: block; text-align: right;">Forgot Password?</a></p>
-                            <button name="submit" name="submit" class="btn" type="submit">Login</button>
-                        </form>
-                        
-                        <div class="logos">
-                    <a href="https://www.instagram.com/outfitters.me/">
-                    <ion-icon name="logo-instagram" class="logo1"></ion-icon>
-                    </a>
-
-                    <a href="">
-                    <ion-icon name="logo-twitter" class="logo1"></ion-icon>
-                    </a>
-
-                    <a href="">
-                    <ion-icon name="logo-facebook" class="logo1"></ion-icon>
-                    </a>
-
-                    <a href="https://pin.it/4Zchugx">
-                    <ion-icon name="logo-pinterest" class="logo1"></ion-icon>
-                    </a>
-
-</div>
-
-                        <div class="social-icons">
-                            <p>Create Account! <a href="register.php">Register</a>.</p>
-                        </div>
-                    </div>
-                </div>
+      
+    <div class="container">
+      <div class="left">
+        <div class="calendar">
+          <div class="month">
+            <i class="fas fa-angle-left prev"></i>
+            <div class="date">december 2015</div>
+            <i class="fas fa-angle-right next"></i>
+          </div>
+          <div class="weekdays">
+            <div>Sun</div>
+            <div>Mon</div>
+            <div>Tue</div>
+            <div>Wed</div>
+            <div>Thu</div>
+            <div>Fri</div>
+            <div>Sat</div>
+          </div>
+          <div class="days"></div>
+          <div class="goto-today">
+            <div class="goto">
+              <input type="text" placeholder="mm/yyyy" class="date-input" />
+              <button class="goto-btn">Go</button>
             </div>
-            <!-- //form -->
+            <button class="today-btn">Today</button>
+          </div>
         </div>
-    </section>
-    <!-- //form section start -->
+      </div>
+      
+      <div class="right">
+        <div class="today-date">
+          <div class="event-day">wed</div>
+          <div class="event-date">12th december 2022</div>
+        </div>
+        <div class="img_selected">
+      <?php if ($row): ?>
 
-    <script src="js/jquery.min.js"></script>
-    <script>
-        $(document).ready(function (c) {
-            $('.alert-close').on('click', function (c) {
-                $('.main-mockup').fadeOut('slow', function (c) {
-                    $('.main-mockup').remove();
-                });
-            });
-        });
-    </script>
-<script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
-<script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
-</body>
+        <h3 style="text-align: center;" id="img_desc">Top </h3>
+        <img src="<?php echo $row['top_image']; ?>" alt="Top Clothes" width="160">
+
+        <h3 style="text-align: center;" id="img_desc">Bottom </h3>
+        <img src="<?php echo $row['bottom_image']; ?>" alt="Bottom Clothes" width="160">
+
+        <h3 style="text-align: center;" id="img_desc">Shoes</h3>
+        <img src="<?php echo $row['shoes_image']; ?>" alt="Shoes" width="160">
+      <?php endif; ?>
+    </div>
+        <div class="events"></div>
+        <div class="add-event-wrapper">
+          <div class="add-event-header">
+            <div class="title">Upload Clothes</div>
+            <i class="fas fa-times close"></i>
+          </div>
+          <div class="add-event-body">
+          <div class="img_upload">
+  
+      <form method="post" action="index.php" enctype="multipart/form-data">
+        <label for="top_image" >Top Clothes</label><br>
+        <input type="file" name="top_image" id="top_image" required><br>
+
+        <label for="bottom_image" >Bottom Clothes</label><br>
+        <input type="file" name="bottom_image" id="bottom_image" required><br>
+
+        <label for="shoes_image">Shoes</label><br>
+        <input type="file" name="shoes_image" id="shoes_image" required><br>
+
+        <input type="submit" value="Upload" id="upload_btn">
+      </form><br>
+      <?php echo " <div id='img_sccs'>Image uploaded successfully.</div>"; ?>
+    </div>
+
+          </div>
+          <div class="add-event-footer">
+            <button class="add-event-btn">Add Event</button>
+          </div>
+        </div>
+      </div>
+      <button class="add-event">
+        <i class="fas fa-plus"></i>
+      </button>
+    </div>
+    <footer>
+      <div class="waves">
+      <div class="wave" id="wave1"></div>
+      <div class="wave" id="wave2"></div>
+      <div class="wave" id="wave3"></div>
+      <div class="wave" id="wave4"></div>
+      </div>
+      <ul class="social_icon">
+      <li><a href="#"><ion-icon name="logo-pinterest"></ion-icon></a></li>
+      <li><a href="#"><ion-icon name="logo-instagram"></ion-icon></a></li>
+      <li><a href="#"><ion-icon name="logo-google"></ion-icon></ion-icon></a></li>
+      </ul>
+
+      <ul class="menu">
+      <li><a href="#">Shipping Info</a></li>
+      <li><a href="#">Returns</a></li>
+      <li><a href="#">How to order</a></li>
+      <li><a href="#">How to Track</a></li>
+      <li><a href="#">Contact</a></li>
+      </ul>
+      <p>@2023 Outfitters | Al Shamel Street - Sheikh Mohamed Bin Salem Rd - Al Dhait South - Ras Al Khaimah</p>
+  </footer>
+  </section>
+  </div>
+      <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+      <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+
+      <script src="script.js"></script>
+  </body>
+
+  <style>
+
+  @import url('https://fonts.googleapis.com/css2?family=Bruno+Ace+SC&family=Lilita+One&family=Oleo+Script&family=Roboto+Slab:wght@300&display=swap');
+
+input[type="file"]{
+display: none;
+}
+
+label{
+  height: 40px;
+  width: 200px;
+  background-color: #e3b37d;
+  position: relative;
+  padding: 10px;
+  border-radius: 5px;
+  display: inline-block;
+  border: 2px solid black;
+  padding-top: 10px;
+  padding-bottom: 15px; 
+  font-size: 15px;
+}
+
+label:hover{
+  
+  background-color: #4f3211;
+  border: 1px solid black;
+  transition-timing-function: ease-in;
+  color: white;
+  font-weight: bold;
+}
+
+#upload_btn{
+
+  height: 40px;
+  width: 200px;
+  background-color: green;
+  
+}
+
+#upload_btn:hover{
+
+height: 40px;
+width: 200px;
+background-color: lightgreen;
+font-weight: bold;
+color: black;
+}
+
+.img_upload{
+    justify-content: center;
+    text-align: center;
+    align-items: center;
+
+    padding: 70px;
+    color: black;
+    padding-bottom: 50px;
+    margin-top: -40px;
+    padding-top: 20px;
+    
+}
+.img_selected{
+  padding-top: 0px;
+  margin-top: -100px;
+  padding: 70px;
+  margin-right: -100px;
+  justify-content: center;
+  text-align: center;
+  align-items: center;
+  margin-left: -100px;
+  padding-bottom: 20px;
+    
+  
+}
+
+#img_desc{
+  justify-content: center;
+  text-align: center;
+  align-items: center;
+  padding: 10px;
+  font-family: 'Lilita One';
+  font-size: 25px;
+  letter-spacing: 3px;
+  
+}
+
+#img_sccs{
+    justify-content: center;
+    text-align: center;
+    align-items: center;
+   
+}
+
+  </style>
 
 </html>
+
